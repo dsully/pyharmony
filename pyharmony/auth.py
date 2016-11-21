@@ -24,18 +24,20 @@ class SessionTokenClient(BaseXMPPClient):
         """
 
         client = cls('guest@connect.logitech.com/gatorade', 'guest')
+        token = asyncio.Future()
+
+        async def start(event):
+            token.set_result(await client.get_token())
+            client.disconnect()
+
+        client.add_event_handler('session_start', start)
         client.connect(address=(hostname, port), disable_starttls=True, use_ssl=False)
+        client.process(forever=False)
 
-        tasks = asyncio.gather(*[client.session_start()])
-        client.loop.run_until_complete(tasks)
-        client.disconnect()
+        return token.result()
 
-        return next(iter(tasks.result()), None)
-
-    async def session_start(self):
-        """Called when the XMPP session has been initialized."""
-
-        await self.session_bind_event.wait()
+    async def get_token(self):
+        """Get the login token for a client session."""
 
         iq_cmd = self.Iq()
         iq_cmd['type'] = 'get'

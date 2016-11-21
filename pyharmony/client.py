@@ -14,19 +14,17 @@ class HarmonyClient(BaseXMPPClient):
     def __init__(self, hostname, port, session_token):
         jid = '%s@connect.logitech.com/gatorade' % session_token
 
+        log.debug("%s JID: %s", self.__class__, jid)
+
         super(HarmonyClient, self).__init__(jid, session_token)
 
         self.connect(address=(hostname, port), disable_starttls=True, use_ssl=False)
-        self.result = None
 
     async def get_config(self):
         """Retrieves the Harmony device configuration.
 
         :returns: A nested dictionary containing activities, devices, etc.
         """
-
-        # Wait until the session has been started.
-        await self.session_bind_event.wait()
 
         iq = self.Iq()
         iq['type'] = 'get'
@@ -43,9 +41,8 @@ class HarmonyClient(BaseXMPPClient):
         action_cmd = payload[0]
 
         assert action_cmd.attrib['errorcode'] == '200'
-        device_list = action_cmd.text
 
-        return json.loads(device_list)
+        return json.loads(action_cmd.text)
 
     async def get_current_activity(self):
         """Retrieves the current activity.
@@ -53,9 +50,6 @@ class HarmonyClient(BaseXMPPClient):
         :rtype: int
         :returns: A int with the activity ID.
         """
-
-        # Wait until the session has been started.
-        await self.session_bind_event.wait()
 
         iq = self.Iq()
         iq['type'] = 'get'
@@ -79,12 +73,7 @@ class HarmonyClient(BaseXMPPClient):
         """Starts an activity.
 
         :param int activity_id: An int identifying the activity to start.
-
-        :returns: A nested dictionary containing activities, devices, etc.
         """
-
-        # Wait until the session has been started.
-        await self.session_bind_event.wait()
 
         iq = self.Iq()
         iq['type'] = 'get'
@@ -99,13 +88,14 @@ class HarmonyClient(BaseXMPPClient):
 
         assert len(payload) == 1
         action_cmd = payload[0]
+
         return action_cmd.text
 
     async def turn_off(self):
         """Turns the system off if it's on, otherwise it does nothing."""
 
-        activity = self.get_current_activity()
+        activity = await self.get_current_activity()
 
         if activity != -1:
-            self.start_activity(-1)
+            await self.start_activity(-1)
         return True

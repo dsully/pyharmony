@@ -46,14 +46,16 @@ def show_config(ctx, filename):
 
     token = SessionTokenClient.login(**ctx.obj)
     client = HarmonyClient(ctx.obj['hostname'], ctx.obj['port'], token)
+    config = asyncio.Future()
 
-    tasks = asyncio.gather(*[client.get_config()])
-    client.loop.run_until_complete(tasks)
-    client.disconnect()
+    async def start(event):
+        config.set_result(await client.get_config())
+        client.disconnect()
 
-    config = json.dumps(next(iter(tasks.result())), indent=2)
+    client.add_event_handler('session_start', start)
+    client.process(forever=False)
 
     with click.open_file(filename, 'w') as fh:
-      fh.write(config)
+      fh.write(json.dumps(config.result(), indent=2))
 
     sys.exit(0)
